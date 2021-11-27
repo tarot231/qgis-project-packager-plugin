@@ -1,0 +1,15 @@
+[general]
+name=Project Packager
+qgisMinimumVersion=3.6
+description=Gathers scattered data to make the project portable
+description[ja]=散らばったデータを集めて、プロジェクトをポータブルにします
+about=This plugin exports a portable project by copying the data scattered on the disk into a specified directory. On output, the directory structure below the project home is copied, but unnecessary files are not copied. The supported data are those loaded by GDAL/OGR.
+about[ja]=このプラグインは、ディスク上に散在するデータを指定したディレクトリ内にコピーして、ポータブルなプロジェクトをエクスポートします。出力の際、プロジェクトのホーム以下のディレクトリ構造はコピーしますが、不要なファイルはコピーしません。対応しているデータは GDAL/OGR で読み込んでいるものです。
+version=0.5
+author=Tarot Osuji
+email=tarot@sdf.org
+homepage=https://github.com/tarot231/qgis-project-packager-plugin
+tracker=https://github.com/tarot231/qgis-project-packager-plugin/issues
+repository=https://github.com/tarot231/qgis-project-packager-plugin
+icon=icon.png
+experimental=True
