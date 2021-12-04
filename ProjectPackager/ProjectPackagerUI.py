@@ -26,13 +26,21 @@ from qgis.PyQt.QtGui import QIcon, QFont, QFontMetrics
 from qgis.PyQt.QtWidgets import *
 
 
+class FolderNaming:
+    (
+        NUM_ONLY,
+        NUM_FOLDER,
+        ORIGINAL,
+    ) = range(3)
+
+
 class ProjectPackagerDialog(QDialog):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.dirEdit = QLineEdit()
         self.dirEdit.setReadOnly(True)
-        self.dirEdit.setMinimumWidth(QFontMetrics(QFont()).height() * 30)
+        self.dirEdit.setMinimumWidth(QFontMetrics(QFont()).height() * 28)
         self.dirButton = QToolButton()
         self.dirButton.setIcon(QIcon(':/images/themes/default/mActionFileOpen.svg'))
         self.dirButton.clicked.connect(self.dirButton_clicked)
@@ -40,7 +48,18 @@ class ProjectPackagerDialog(QDialog):
         hbox.addWidget(self.dirEdit)
         hbox.addWidget(self.dirButton)
         form = QFormLayout()
-        form.addRow(self.tr('Output directory'), hbox)
+        form.addRow(self.tr('Output folder'), hbox)
+
+        self.radiosNaming = []
+        self.radiosNaming += [QRadioButton(self.tr('Number only'))]
+        self.radiosNaming += [QRadioButton(self.tr('Number and folder name'))]
+        self.radiosNaming += [QRadioButton(self.tr('Original folder name (append underscores for duplicates)'))]
+        self.radiosNaming[0].setChecked(True)
+        vbox = QVBoxLayout()
+        for w in self.radiosNaming:
+            vbox.addWidget(w)
+        groupNaming = QGroupBox(self.tr('Folder name outside the project home (copied in the _EXTRA folder)'))
+        groupNaming.setLayout(vbox)
 
         buttonBox = QDialogButtonBox(
                 QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
@@ -48,15 +67,21 @@ class ProjectPackagerDialog(QDialog):
 
         vbox = QVBoxLayout()
         vbox.addLayout(form)
+        vbox.addWidget(groupNaming)
         vbox.addWidget(buttonBox)
 
         self.setLayout(vbox)
         self.setMaximumHeight(0)
 
     def dirButton_clicked(self):
-        res = QFileDialog.getExistingDirectory(directory=self.dirEdit.text())
+        res = QFileDialog.getExistingDirectory(self, directory=self.dirEdit.text())
         if res:
             self.dirEdit.setText(res)
+
+    def get_folderNaming(self):
+        for i, w in enumerate(self.radiosNaming):
+            if w.isChecked():
+                return i
 
 
 class ProgressDialog(QProgressDialog):

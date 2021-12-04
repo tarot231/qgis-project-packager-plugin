@@ -28,7 +28,7 @@ from qgis.PyQt.QtCore import *
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import *
 from qgis.core import Qgis, QgsApplication, QgsProject, QgsDataProvider
-from .ProjectPackagerUI import ProjectPackagerDialog, ProgressDialog
+from .ProjectPackagerUI import ProjectPackagerDialog, ProgressDialog, FolderNaming
 
 
 class ProjectPackager(QObject):
@@ -87,8 +87,7 @@ class ProjectPackager(QObject):
         if res == QDialog.Rejected:
             return
 
-        outdir = os.path.join(
-                self.dialog.dirEdit.text(), project.baseName())
+        outdir = '/'.join([self.dialog.dirEdit.text(), project.baseName()])
         home = project.homePath()
 
         # https://stackoverflow.com/q/3812849
@@ -133,9 +132,27 @@ class ProjectPackager(QObject):
 
         extras = sorted(set(os.path.dirname(p) for p in srcs.values()
                 if p and not is_in_dir(home, p)))
+        extras_dest = {}
+        naming = self.dialog.get_folderNaming()
+        for idx, d in enumerate(extras):
+            if naming == FolderNaming.NUM_ONLY:
+                extras_dest[d] = '%03d' % idx
+            elif naming == FolderNaming.NUM_FOLDER:
+                extras_dest[d] = '%03d_%s' % (idx, os.path.basename(d))
+            else:
+                base = os.path.basename(d)
+                if base == '':
+                    base = '_'
+                while True:
+                    if base in extras_dest.values():
+                        base += '_'
+                    else:
+                        break
+                extras_dest[d] = base
+
         extra_name = '_EXTRA'
         while os.path.exists(os.path.join(home, extra_name)):
-            extra_name = '_' + extra_name
+            extra_name += '_'
 
         pd = ProgressDialog(self.mw)
         pd.setMaximum(len(lyrs))
@@ -159,10 +176,9 @@ class ProjectPackager(QObject):
                         ds = None
 
                 srcdir = os.path.dirname(fl[0])
-                try:
-                    idx = extras.index(srcdir)
-                    rel = os.path.join(extra_name, '%03d' % idx)
-                except ValueError:
+                if srcdir in extras:
+                    rel = os.path.join(extra_name, extras_dest[srcdir])
+                else:
                     rel = os.path.relpath(srcdir, home)
 
                 dstdir = os.path.join(outdir, rel)
@@ -188,9 +204,11 @@ class ProjectPackager(QObject):
                             os.path.abspath(dstdir)
                             ).toEncoded().data().decode()
 
+                crs = lyr.crs()
                 lyr.setDataSource(lyr.source().replace(srcdir, dstdir),
                                   lyr.name(), lyr.providerType(),
                                   QgsDataProvider.ProviderOptions())
+                lyr.setCrs(crs, False)
 
             if not pd.wasCanceled():
                 pd.setValue(len(lyrs))
@@ -218,4 +236,7 @@ class ProjectPackager(QObject):
 
         if res:
             mb.pushSuccess(self.plugin_name, self.tr(
-                    'Successfully exported project to %s') % outdir)
+                    'Successfully exported project to %s')
+                    % ('<a href="%s">%s</a>'
+                    % (QUrl.fromLocalFile(outdir).toEncoded().data().decode(),
+                       outdir)))
