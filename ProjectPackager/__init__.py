@@ -19,9 +19,224 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
- This script initializes the plugin, making it known to QGIS.
 """
 
-def classFactory(iface):
-    from .ProjectPackager import ProjectPackager
-    return ProjectPackager(iface)
+import os
+import shutil
+from osgeo import gdal
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
+from qgis.PyQt.QtWidgets import *
+from qgis.core import Qgis, QgsApplication, QgsProject, QgsDataProvider
+from .ProjectPackagerUI import ProjectPackagerDialog, ProgressDialog, FolderNaming
+
+
+class ProjectPackager(QObject):
+    def __init__(self, iface):
+        super().__init__()
+        self.iface = iface
+        self.translator = QTranslator()
+        if self.translator.load(QLocale(QgsApplication.locale()),
+                '', '', os.path.join(os.path.dirname(__file__), 'i18n')):
+            qApp.installTranslator(self.translator)
+
+    def initGui(self):
+        self.mw = self.iface.mainWindow()
+        self.plugin_name = self.tr('Project Packager')
+        self.plugin_act = QAction(
+                QIcon(os.path.join(os.path.dirname(__file__), 'icon.png')),
+                self.plugin_name, self.mw)
+        self.plugin_act.setObjectName("mActionProjectPackager")
+        self.plugin_act.triggered.connect(self.run)
+
+        self.mw.windowTitleChanged.connect(self.filename_changed)
+        self.filename_changed()
+
+        self.dialog = ProjectPackagerDialog(parent=self.mw)
+        self.dialog.setWindowTitle(self.plugin_name)
+
+        self.iface.addToolBarIcon(self.plugin_act)
+        self.iface.addPluginToMenu(self.plugin_name, self.plugin_act)
+
+    def unload(self):
+        self.iface.removePluginMenu(self.plugin_name, self.plugin_act)
+        self.iface.removeToolBarIcon(self.plugin_act)
+        self.mw.windowTitleChanged.disconnect(self.filename_changed)
+
+    def filename_changed(self):
+        self.plugin_act.setEnabled(bool(QgsProject.instance().fileName()))
+
+    def run(self):
+        project = QgsProject.instance()
+
+        if project.projectStorage():
+            QMessageBox.warning(self.mw, self.plugin_name, self.tr(
+                    'The project stored in a project storage is not supported.'))
+            return
+        if project.isDirty():
+            QMessageBox.warning(self.mw, self.plugin_name, self.tr(
+                    'The project has been modified. Please save it and try again.'))
+            return
+
+        if not os.path.exists(self.dialog.dirEdit.text()):
+            self.dialog.dirEdit.setText(
+                    QStandardPaths.standardLocations(
+                            QStandardPaths.DocumentsLocation)[0])
+
+        res = self.dialog.exec()
+        if res == QDialog.Rejected:
+            return
+
+        outdir = '/'.join([self.dialog.dirEdit.text(), project.baseName()])
+        home = project.homePath()
+
+        # https://stackoverflow.com/q/3812849
+        def is_in_dir(parent, child):
+            parent = os.path.abspath(parent)
+            child = os.path.abspath(child)
+            try:
+                return os.path.commonpath([parent, child]) == parent
+            except ValueError:
+                return False
+
+        if is_in_dir(home, outdir):
+            QMessageBox.warning(self.mw, self.plugin_name, self.tr(
+                    'The output directory cannot be in the project home.'))
+            return
+
+        if os.path.exists(outdir):
+            res = QMessageBox.question(self.mw, self.plugin_name, self.tr(
+                    "The data in the existing directory '%s' will be lost. Are you sure you want to continue?")
+                    % outdir)
+            if res != QMessageBox.Yes:
+                return
+            try:
+                shutil.rmtree(outdir)
+            except Exception as e:
+                QMessageBox.critical(self.mw, self.plugin_name, str(e))
+                return
+        try:
+            os.makedirs(outdir)
+        except Exception as e:
+            QMessageBox.critical(self.mw, self.plugin_name, str(e))
+            return
+
+        project_file = project.fileName()
+        lyrs = project.mapLayers().values()
+        srcs = {lyr: lyr.source().split('|')[0] for lyr in lyrs}
+        for lyr, src in srcs.items():
+            if src.startswith('file:'):
+                srcs[lyr] = QUrl(src).toLocalFile()
+            if not os.path.exists(srcs[lyr]):
+                srcs[lyr] = None
+
+        extras = sorted(set(os.path.dirname(p) for p in srcs.values()
+                if p and not is_in_dir(home, p)))
+        extras_dest = {}
+        naming = self.dialog.get_folderNaming()
+        for idx, d in enumerate(extras):
+            if naming == FolderNaming.NUM_ONLY:
+                extras_dest[d] = '%03d' % idx
+            elif naming == FolderNaming.NUM_FOLDER:
+                extras_dest[d] = '%03d_%s' % (idx, os.path.basename(d))
+            else:
+                base = os.path.basename(d)
+                if base == '':
+                    base = '_'
+                while True:
+                    if base in extras_dest.values():
+                        base += '_'
+                    else:
+                        break
+                extras_dest[d] = base
+
+        extra_name = '_EXTRA'
+        while os.path.exists(os.path.join(home, extra_name)):
+            extra_name += '_'
+
+        pd = ProgressDialog(self.mw)
+        pd.setMaximum(len(lyrs))
+        pd.setWindowTitle(self.plugin_name)
+
+        res = None
+        try:
+            for lyr in lyrs:
+                if pd.wasCanceled():
+                    break
+                pd.setValue(pd.value() + 1)
+
+                if srcs[lyr] is None:
+                    continue
+                fl = [srcs[lyr]]
+                if lyr.providerType() in ('gdal', 'ogr'):
+                    try:
+                        ds = gdal.OpenEx(srcs[lyr])
+                        fl = ds.GetFileList()
+                    finally:
+                        ds = None
+
+                srcdir = os.path.dirname(fl[0])
+                if srcdir in extras:
+                    rel = os.path.join(extra_name, extras_dest[srcdir])
+                else:
+                    rel = os.path.relpath(srcdir, home)
+
+                dstdir = os.path.join(outdir, rel)
+                try:
+                    os.makedirs(dstdir)
+                except FileExistsError:
+                    pass
+
+                for p in fl:
+                    try:
+                        pd.setLabelText(self.tr(
+                                'Copying: %s') % os.path.basename(p))
+                        qApp.processEvents()
+                        shutil.copy2(p, dstdir)
+                    except FileNotFoundError as e:
+                        pass
+
+                if lyr.source().startswith('file:'):
+                    srcdir = QUrl.fromLocalFile(
+                            srcdir
+                            ).toEncoded().data().decode()
+                    dstdir = QUrl.fromLocalFile(
+                            os.path.abspath(dstdir)
+                            ).toEncoded().data().decode()
+
+                crs = lyr.crs()
+                lyr.setDataSource(lyr.source().replace(srcdir, dstdir),
+                                  lyr.name(), lyr.providerType(),
+                                  QgsDataProvider.ProviderOptions())
+                lyr.setCrs(crs, False)
+
+            if not pd.wasCanceled():
+                pd.setValue(len(lyrs))
+                pd.setLabelText(self.tr('Writing project file...'))
+                qApp.processEvents()
+                rel = os.path.relpath(home, project.absolutePath())
+                rev = ''
+                if rel.startswith('.'):
+                    rev = os.path.relpath(project.absolutePath(), home)
+                    project.setPresetHomePath(rel)
+                project.writeEntryBool('Paths', '/Absolute', False)
+                res = project.write(os.path.join(
+                        outdir, rev, os.path.basename(project_file)))
+
+        except Exception as e:
+            QMessageBox.critical(self.mw, self.plugin_name, str(e))
+
+        finally:
+            pd.hide()
+            pd.deleteLater()
+            mb = self.iface.messageBar()
+            mb.widgetAdded.connect(mb.popWidget)
+            project.read(project_file)
+            mb.widgetAdded.disconnect(mb.popWidget)
+
+        if res:
+            mb.pushSuccess(self.plugin_name, self.tr(
+                    'Successfully exported project to %s')
+                    % ('<a href="%s">%s</a>'
+                    % (QUrl.fromLocalFile(outdir).toEncoded().data().decode(),
+                       outdir)))
