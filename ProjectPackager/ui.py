@@ -22,25 +22,19 @@
 """
 
 from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtGui import QIcon, QFont, QFontMetrics
+from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import *
+from qgis.gui import QgsDialog
 
 
-class FolderNaming:
-    (
-        NUM_ONLY,
-        NUM_FOLDER,
-        ORIGINAL,
-    ) = range(3)
-
-
-class ProjectPackagerDialog(QDialog):
+class ProjectPackagerDialog(QgsDialog):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        x = self.findChild(QLayout); x.insertLayout(0, x.takeAt(0))  # TRICK
 
         self.dirEdit = QLineEdit()
         self.dirEdit.setReadOnly(True)
-        self.dirEdit.setMinimumWidth(QFontMetrics(QFont()).height() * 28)
+        self.dirEdit.setMinimumWidth(self.fontInfo().pixelSize() * 30)
         self.dirButton = QToolButton()
         self.dirButton.setIcon(QIcon(':/images/themes/default/mActionFileOpen.svg'))
         self.dirButton.clicked.connect(self.dirButton_clicked)
@@ -50,27 +44,30 @@ class ProjectPackagerDialog(QDialog):
         form = QFormLayout()
         form.addRow(self.tr('Output folder'), hbox)
 
-        self.radiosNaming = []
-        self.radiosNaming += [QRadioButton(self.tr('Number only'))]
-        self.radiosNaming += [QRadioButton(self.tr('Number and folder name'))]
-        self.radiosNaming += [QRadioButton(self.tr('Original folder name (append underscores for duplicates)'))]
-        self.radiosNaming[0].setChecked(True)
-        vbox = QVBoxLayout()
-        for w in self.radiosNaming:
-            vbox.addWidget(w)
-        groupNaming = QGroupBox(self.tr('Folder name outside the project home (copied in the _EXTRA folder)'))
-        groupNaming.setLayout(vbox)
+        self.radiosMethod = [
+                QRadioButton(self.tr('Copy original data files')),
+                QRadioButton(self.tr('Store data in GeoPackage'))
+        ]
+        self.radiosMethod[0].setChecked(True)
+        self.checkVacuum = QCheckBox(self.tr('Vacuum SQLite-based files after copying'))
+        self.checkStoreProject = QCheckBox(self.tr('Store project in GeoPackage'))
 
-        buttonBox = QDialogButtonBox(
-                QDialogButtonBox.Ok | QDialogButtonBox.Cancel,
-                accepted=self.accept, rejected=self.reject)
+        grid = QGridLayout()
+        grid.addWidget(self.radiosMethod[0], 0, 0, 1, 0)
+        grid.addWidget(self.checkVacuum, 1, 1)
+        grid.addWidget(self.radiosMethod[1], 2, 0, 1, 0)
+        grid.addWidget(self.checkStoreProject, 3, 1)
+        grid.setColumnMinimumWidth(0, QRadioButton().sizeHint().width())
+        groupMethod = QGroupBox(self.tr('Data storage method'))
+        groupMethod.setLayout(grid)
 
-        vbox = QVBoxLayout()
+        buttonBox = self.buttonBox()
+        buttonBox.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+
+        vbox = self.layout()
         vbox.addLayout(form)
-        vbox.addWidget(groupNaming)
-        vbox.addWidget(buttonBox)
+        vbox.addWidget(groupMethod)
 
-        self.setLayout(vbox)
         self.setMaximumHeight(0)
 
     def dirButton_clicked(self):
@@ -78,10 +75,16 @@ class ProjectPackagerDialog(QDialog):
         if res:
             self.dirEdit.setText(res)
 
-    def get_folderNaming(self):
-        for i, w in enumerate(self.radiosNaming):
+    def get_method(self):
+        for i, w in enumerate(self.radiosMethod):
             if w.isChecked():
                 return i
+
+    def set_gpkg_enabled(self, b):
+        self.radiosMethod[1].setEnabled(b)
+        self.checkStoreProject.setEnabled(b)
+        if b == False:
+            self.radiosMethod[0].setChecked(True)
 
 
 class ProgressDialog(QProgressDialog):
@@ -91,10 +94,18 @@ class ProgressDialog(QProgressDialog):
         self.setAutoReset(False)
         self.setMinimumDuration(0)
         self.setWindowModality(Qt.WindowModal)
-        self.setMinimumWidth(QFontMetrics(QFont()).height() * 30)
+        self.setMinimumWidth(self.fontInfo().pixelSize() * 30)
+
+    def setCopyingLabel(self, basename):
+        self.setLabelText(self.tr('Copying: %s') % basename)
+
+    def setVacuumingLabel(self, basename):
+        self.setLabelText(self.tr('Vacuuming: %s') % basename)
+
+    def setStoringLabel(self, layername):
+        self.setLabelText(self.tr('Storing: %s') % layername)
 
 
 if __name__ == '__main__':
     app = QApplication([])
-    w = ProjectPackagerDialog()
-    w.exec()
+    ProjectPackagerDialog().exec()

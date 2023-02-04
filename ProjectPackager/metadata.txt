@@ -1,18 +1,20 @@
 [general]
 name=Project Packager
-qgisMinimumVersion=3.6
+qgisMinimumVersion=3.14
 description=Gathers scattered data to make the project portable
-description[ja]=散らばったデータを集めて、プロジェクトをポータブルにします
-about=This plugin exports a portable project by copying the data scattered on the disk into a specified directory. On output, the directory structure below the project home is copied, but unnecessary files are not copied. The supported data are those loaded by GDAL/OGR.
-about[ja]=このプラグインは、ディスク上に散在するデータを指定したディレクトリ内にコピーして、ポータブルなプロジェクトをエクスポートします。出力の際、プロジェクトのホーム以下のディレクトリ構造はコピーしますが、不要なファイルはコピーしません。対応しているデータは GDAL/OGR で読み込まれたものです。
-version=0.5.1
+description[ja]=散らばったデータをまとめて、プロジェクトをポータブルにします
+about=This plugin exports a portable project by copying data scattered on storage into a specified folder. When exporting, you can choose to copy the original files or store the data in a single GeoPackage. Note that if there is data that cannot be stored in GeoPackage, storage in GeoPackage will be disabled.
+about[ja]=このプラグインは、ストレージ上に散在するデータを指定されたフォルダにコピーして、ポータブルなプロジェクトをエクスポートします。エクスポートする際、元のファイルをコピーするか、単一の GeoPackage にデータを保存するかを選択できます。なお、GeoPackage に保存できないデータがある場合、GeoPackage への保存は無効になります。
+version=0.6.0
 changelog=
- 0.5.1
-  - Added folder naming scheme selection
+ 0.6.0
+  - Added storing data in GeoPackage (#1)
+  - Added option to vacuum SQLite-based files (#2)
+  - Simplified by eliminating the copy method option
 author=Tarot Osuji
 email=tarot@sdf.org
 homepage=https://github.com/tarot231/qgis-project-packager-plugin
 tracker=https://github.com/tarot231/qgis-project-packager-plugin/issues
 repository=https://github.com/tarot231/qgis-project-packager-plugin
 icon=icon.png
-tags=project
+tags=project, geopackage
