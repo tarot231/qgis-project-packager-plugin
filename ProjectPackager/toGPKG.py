@@ -29,7 +29,9 @@ from osgeo import gdal
 from qgis.PyQt.QtWidgets import qApp
 from qgis.core import (Qgis, QgsMapLayerType, QgsDataProvider, QgsProviderRegistry,
         QgsVectorFileWriter, QgsFields,
-        QgsRasterFileWriter, QgsRasterPipe, QgsRasterProjector, QgsRasterBlockFeedback)
+        QgsRasterFileWriter, QgsRasterPipe, QgsRasterProjector, QgsRasterBlockFeedback,
+        QgsRenderContext)
+from .symbol import embed_images_to_project
 
 
 class ToGPKG(object):
@@ -107,6 +109,10 @@ class ToGPKG(object):
                     QgsDataProvider.ProviderOptions())
 
             self.pd.setValue(self.pd.value() + 1)
+        
+        context = QgsRenderContext.fromMapSettings(
+                        self.iface.mapCanvas().mapSettings())
+        embed_images_to_project(self.pj, context)
 
 
 def is_layer_in_gpkg(filename, layerName):

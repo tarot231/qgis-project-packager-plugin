@@ -28,13 +28,21 @@ from contextlib import closing
 from osgeo import gdal
 from qgis.PyQt.QtCore import QDir
 from qgis.PyQt.QtWidgets import qApp
-from qgis.core import QgsDataProvider, QgsProviderRegistry
+from qgis.core import (QgsDataProvider, QgsProviderRegistry, QgsRenderContext,
+                       QgsLayoutItemPicture)
+from .symbol import get_symbol_layer_map, set_path_to_symbol_layer
 
 
 class ToDirectory(object):
     def copyOriginalData(self):
         # Organize target names
-        paths_set = list(set(path for path, _, _ in self.src_map.values()))
+        paths = [path for path, _, _ in self.src_map.values()]
+        context = QgsRenderContext.fromMapSettings(
+                        self.iface.mapCanvas().mapSettings())
+        slyr_map = get_symbol_layer_map(self.pj, context)
+        paths.extend([path for path in slyr_map.values()])
+
+        paths_set = list(set(paths))
         dirs = [os.path.dirname(x) for x in paths_set]
         path_map = dict(zip(paths_set, dirs))
         
@@ -118,3 +126,15 @@ class ToDirectory(object):
             lyr.setDataSource(data_source,
                     lyr.name(), lyr.providerType(),
                     QgsDataProvider.ProviderOptions())
+
+        # Reset path for symbol layer
+        for slyr, path in slyr_map.items():
+            new_path = QDir(os.path.join(self.outdir,
+                    path_map[path], os.path.basename(path))).absolutePath()
+            if isinstance(slyr, QgsLayoutItemPicture):
+                format = (QgsLayoutItemPicture.FormatSVG
+                        if new_path.endswith('.svg') or new_path.endswith('.svgz')
+                        else QgsLayoutItemPicture.FormatRaster) 
+                slyr.setPicturePath(new_path, format)
+            else:
+                set_path_to_symbol_layer(slyr, new_path)

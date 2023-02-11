@@ -5,9 +5,11 @@ description=Gathers scattered data to make the project portable
 description[ja]=散らばったデータをまとめて、プロジェクトをポータブルにします
 about=This plugin exports a portable project by copying data scattered on storage into a specified folder. When exporting, you can choose to copy the original files or store the data in a single GeoPackage. Note that if there is data that cannot be stored in GeoPackage, storage in GeoPackage will be disabled.
 about[ja]=このプラグインは、ストレージ上に散在するデータを指定されたフォルダにコピーして、ポータブルなプロジェクトをエクスポートします。エクスポートする際、元のファイルをコピーするか、単一の GeoPackage にデータを保存するかを選択できます。なお、GeoPackage に保存できないデータがある場合、GeoPackage への保存は無効になります。
-version=0.6.0
+version=0.7
 changelog=
- 0.6.0
+ 0.7
+  - Added symbol image packaging (#3)
+ 0.6
   - Added storing data in GeoPackage (#1)
   - Added option to vacuum SQLite-based files (#2)
   - Simplified by eliminating the copy method option
