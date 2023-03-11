@@ -25,6 +25,7 @@ import os
 import shutil
 import sqlite3
 from contextlib import closing
+from distutils.dir_util import copy_tree
 from osgeo import gdal
 from qgis.PyQt.QtCore import QDir
 from qgis.PyQt.QtWidgets import qApp
@@ -45,7 +46,7 @@ class ToDirectory(object):
         paths_set = list(set(paths))
         dirs = [os.path.dirname(x) for x in paths_set]
         path_map = dict(zip(paths_set, dirs))
-        
+
         dirs_set = list(set(dirs))
         bases = [os.path.basename(x) for x in dirs_set]
         names = []
@@ -73,24 +74,29 @@ class ToDirectory(object):
         for path in path_map:
             if self.pd.wasCanceled():
                 return
-            
+
             dstdir = os.path.join(self.outdir, path_map[path])
             try:
                 os.makedirs(dstdir)
             except FileExistsError:
                 pass
-            try:
-                ds = gdal.OpenEx(path)
-                fl = ds.GetFileList()
-            except AttributeError:
-                fl = [path]  # for vsifile
-            finally:
-                ds = None
+            if os.path.isdir(path):
+                fl = [path]  # for FileGDB etc
+            else:
+                try:
+                    ds = gdal.OpenEx(path)
+                    fl = ds.GetFileList()
+                except AttributeError:
+                    fl = [path]  # for vsifile
+                finally:
+                    ds = None
             for filepath in fl:
                 self.pd.setCopyingLabel(os.path.basename(filepath))
                 qApp.processEvents()
                 try:
                     shutil.copy2(filepath, dstdir)
+                except PermissionError:
+                    copy_tree(filepath, os.path.join(dstdir, os.path.basename(filepath)))
                 except FileNotFoundError:
                     pass
                 # Vacuum
@@ -134,7 +140,7 @@ class ToDirectory(object):
             if isinstance(slyr, QgsLayoutItemPicture):
                 format = (QgsLayoutItemPicture.FormatSVG
                         if new_path.endswith('.svg') or new_path.endswith('.svgz')
-                        else QgsLayoutItemPicture.FormatRaster) 
+                        else QgsLayoutItemPicture.FormatRaster)
                 slyr.setPicturePath(new_path, format)
             else:
                 set_path_to_symbol_layer(slyr, new_path)
