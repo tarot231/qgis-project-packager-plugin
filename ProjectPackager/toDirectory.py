@@ -25,7 +25,6 @@ import os
 import shutil
 import sqlite3
 from contextlib import closing
-from distutils.dir_util import copy_tree
 from osgeo import gdal
 from qgis.PyQt.QtCore import QDir
 from qgis.PyQt.QtWidgets import qApp
@@ -95,8 +94,11 @@ class ToDirectory(object):
                 qApp.processEvents()
                 try:
                     shutil.copy2(filepath, dstdir)
-                except PermissionError:
-                    copy_tree(filepath, os.path.join(dstdir, os.path.basename(filepath)))
+                except (IsADirectoryError,  # for linux
+                        PermissionError,    # for windows
+                        ):  # https://bugs.python.org/issue43095
+                    shutil.copytree(filepath,
+                            os.path.join(dstdir, os.path.basename(filepath)))
                 except FileNotFoundError:
                     pass
                 # Vacuum
