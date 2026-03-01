@@ -104,7 +104,7 @@ def get_symbol_layer_map(project, context):
 # https://github.com/qgis/QGIS/search?q=embedFile
 def encode_to_base64path(filepath):
     fileSource = QFile(filepath)
-    if not fileSource.open(QIODevice.ReadOnly):
+    if not fileSource.open(QIODevice.OpenModeFlag.ReadOnly):
         return
     try:
         blob = fileSource.readAll()
@@ -132,7 +132,7 @@ def embed_images_to_project(project, context):
         if isinstance(slyr, QgsLayoutItemPicture):
             format = (QgsLayoutItemPicture.FormatSVG
                     if filepath.endswith('.svg') or filepath.endswith('.svgz')
-                    else QgsLayoutItemPicture.FormatRaster) 
+                    else QgsLayoutItemPicture.FormatRaster)
             slyr.setPicturePath(base64path, format)
         else:
             set_path_to_symbol_layer(slyr, base64path)

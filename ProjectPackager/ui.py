@@ -62,7 +62,9 @@ class ProjectPackagerDialog(QgsDialog):
         groupMethod.setLayout(grid)
 
         buttonBox = self.buttonBox()
-        buttonBox.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttonBox.setStandardButtons(
+                QDialogButtonBox.StandardButton.Ok |
+                QDialogButtonBox.StandardButton.Cancel)
 
         vbox = self.layout()
         vbox.addLayout(form)
@@ -93,7 +95,7 @@ class ProgressDialog(QProgressDialog):
 
         self.setAutoReset(False)
         self.setMinimumDuration(0)
-        self.setWindowModality(Qt.WindowModal)
+        self.setWindowModality(Qt.WindowModality.WindowModal)
         self.setMinimumWidth(self.fontInfo().pixelSize() * 30)
 
     def setCopyingLabel(self, basename):

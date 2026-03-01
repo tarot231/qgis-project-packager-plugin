@@ -26,7 +26,7 @@ import shutil
 from qgis.PyQt.QtCore import (QObject, QTranslator, QLocale, QDir, QUrl,
         QStandardPaths, QXmlStreamReader)
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import qApp, QAction, QMessageBox, QDialog
+from qgis.PyQt.QtWidgets import QAction, QMessageBox, QDialog
 from qgis.core import QgsApplication, QgsProject, QgsProviderRegistry, QgsMapLayerType
 from .ui import ProjectPackagerDialog, ProgressDialog
 from .toDirectory import ToDirectory
@@ -57,7 +57,7 @@ class ProjectPackager(QObject, ToDirectory, ToGPKG):
         self.translator = QTranslator()
         if self.translator.load(QLocale(QgsApplication.locale()),
                 '', '', os.path.join(os.path.dirname(__file__), 'i18n')):
-            qApp.installTranslator(self.translator)
+            QgsApplication.installTranslator(self.translator)
 
     def initGui(self):
         self.pj = QgsProject.instance()
@@ -93,7 +93,7 @@ class ProjectPackager(QObject, ToDirectory, ToGPKG):
             return None
         d = QgsProviderRegistry.instance().decodeUri(dp.name(), lyr.source())  # QGIS 3.4
         path = d.get('path')
-        if path:  # required. QDir(None or '').canonicalPath() returns home path 
+        if path:  # required. QDir(None or '').canonicalPath() returns home path
             path = QDir(path).canonicalPath()  # '' if invalid
         layername = d.get('layerName')
         options = None
@@ -126,8 +126,8 @@ class ProjectPackager(QObject, ToDirectory, ToGPKG):
         if not os.path.exists(self.dialog.dirEdit.text()):
             self.dialog.dirEdit.setText(
                     QStandardPaths.standardLocations(
-                            QStandardPaths.DocumentsLocation)[0])
-        
+                            QStandardPaths.StandardLocation.DocumentsLocation)[0])
+
         try:
             enable_gpkg = True
             self.src_map = {}
@@ -143,7 +143,7 @@ class ProjectPackager(QObject, ToDirectory, ToGPKG):
         self.dialog.set_gpkg_enabled(enable_gpkg)
 
         res = self.dialog.exec()
-        if res == QDialog.Rejected:
+        if res == QDialog.DialogCode.Rejected:
             return
 
         home = self.pj.homePath()
@@ -158,7 +158,7 @@ class ProjectPackager(QObject, ToDirectory, ToGPKG):
             res = QMessageBox.question(self.mw, self.plugin_name, self.tr(
                     "The data in the existing folder '%s' will be lost. Are you sure you want to continue?")
                     % self.outdir)
-            if res != QMessageBox.Yes:
+            if res != QMessageBox.StandardButton.Yes:
                 return
             try:
                 shutil.rmtree(self.outdir)
@@ -177,11 +177,11 @@ class ProjectPackager(QObject, ToDirectory, ToGPKG):
                 self.copyOriginalData()
             else:
                 self.storeDataToGPKG()
-            
+
             if not self.pd.wasCanceled():
                 self.pd.setValue(self.pd.maximum())
                 self.pd.setLabelText(self.tr('Writing project...'))
-                qApp.processEvents()
+                QgsApplication.processEvents()
 
                 self.pj.setPresetHomePath('')
                 self.pj.writeEntryBool('Paths', '/Absolute', False)

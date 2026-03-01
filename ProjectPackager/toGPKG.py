@@ -26,8 +26,8 @@ import uuid
 import sqlite3
 from contextlib import closing
 from osgeo import gdal
-from qgis.PyQt.QtWidgets import qApp
-from qgis.core import (Qgis, QgsMapLayerType, QgsDataProvider, QgsProviderRegistry,
+from qgis.core import (Qgis, QgsApplication,
+        QgsMapLayerType, QgsDataProvider, QgsProviderRegistry,
         QgsVectorFileWriter, QgsFields,
         QgsRasterFileWriter, QgsRasterPipe, QgsRasterProjector, QgsRasterBlockFeedback,
         QgsRenderContext)
@@ -76,7 +76,7 @@ class ToGPKG(object):
         self.pd.setMaximum(len(self.src_map))
         self.pd.setValue(self.pd.maximum())
         self.pd.setValue(self.pd.minimum())
-        qApp.processEvents()
+        QgsApplication.processEvents()
 
         for lyr in self.src_map:
             if self.pd.wasCanceled():
@@ -88,13 +88,13 @@ class ToGPKG(object):
             provider = dp.name()
             if not is_layer_in_gpkg(dstgpkg, layername):
                 self.pd.setStoringLabel(layername)
-                qApp.processEvents()
+                QgsApplication.processEvents()
                 err = write_layer(lyr, dstgpkg, tc, layername)
                 if err[0]:
                     raise RuntimeError('%s: %s' % (layername, err[1]))
             else:
                 self.pd.setLabelText('')
-                qApp.processEvents()
+                QgsApplication.processEvents()
             if provider not in ('gdal', 'ogr'):
                 provider = 'ogr'
 
@@ -109,7 +109,7 @@ class ToGPKG(object):
                     QgsDataProvider.ProviderOptions())
 
             self.pd.setValue(self.pd.value() + 1)
-        
+
         context = QgsRenderContext.fromMapSettings(
                         self.iface.mapCanvas().mapSettings())
         embed_images_to_project(self.pj, context)

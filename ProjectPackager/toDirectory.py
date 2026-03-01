@@ -27,9 +27,8 @@ import sqlite3
 from contextlib import closing
 from osgeo import gdal
 from qgis.PyQt.QtCore import QDir
-from qgis.PyQt.QtWidgets import qApp
-from qgis.core import (QgsDataProvider, QgsProviderRegistry, QgsRenderContext,
-                       QgsVectorDataProvider, QgsLayoutItemPicture)
+from qgis.core import (QgsApplication, QgsDataProvider, QgsVectorDataProvider,
+                       QgsProviderRegistry, QgsRenderContext, QgsLayoutItemPicture)
 from .symbol import get_symbol_layer_map, set_path_to_symbol_layer
 
 
@@ -67,7 +66,7 @@ class ToDirectory(object):
         self.pd.setMaximum(len(path_map))
         self.pd.setValue(self.pd.maximum())
         self.pd.setValue(self.pd.minimum())
-        qApp.processEvents()
+        QgsApplication.processEvents()
 
         # Copy data files
         for path in path_map:
@@ -91,7 +90,7 @@ class ToDirectory(object):
                     ds = None
             for filepath in fl:
                 self.pd.setCopyingLabel(os.path.basename(filepath))
-                qApp.processEvents()
+                QgsApplication.processEvents()
                 try:
                     shutil.copy2(filepath, dstdir)
                 except (IsADirectoryError,
@@ -109,7 +108,7 @@ class ToDirectory(object):
                             header = f.read(16)
                         if header == b'SQLite format 3\000':
                             self.pd.setVacuumingLabel(os.path.basename(filename))
-                            qApp.processEvents()
+                            QgsApplication.processEvents()
                             with closing(sqlite3.connect(filename)) as conn:
                                 conn.execute('VACUUM')
                     except:
@@ -118,7 +117,7 @@ class ToDirectory(object):
             self.pd.setValue(self.pd.value() + 1)
 
         self.pd.setLabelText('')
-        qApp.processEvents()
+        QgsApplication.processEvents()
 
         # Reset data source for layer
         reg = QgsProviderRegistry.instance()
